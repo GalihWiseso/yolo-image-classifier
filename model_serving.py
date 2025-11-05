@@ -1,45 +1,39 @@
 """
-Simple YOLO Image Classification Inference
-Loads a pretrained YOLOv8 classification model and runs predictions on images
+Linear Regression Inference Utilities
+Loads a trained LinearRegression model and runs predictions
 """
 
 from typing import List, Tuple
-from io import BytesIO
-
-from PIL import Image
 import numpy as np
-
-from ultralytics import YOLO
-
-
-def load_model() -> YOLO:
-	"""Load YOLOv8 classification model (pretrained)."""
-	# Smallest pretrained classifier; good for CPU inference
-	# Model file will be auto-downloaded on first run if not present
-	return YOLO("yolov8n-cls.pt")
+import pandas as pd
+import joblib
+import os
 
 
-def read_image_from_bytes(image_bytes: bytes) -> Image.Image:
-	"""Decode bytes into a PIL image in RGB mode."""
-	image = Image.open(BytesIO(image_bytes)).convert("RGB")
-	return image
+MODEL_PATH = "models/linear_regression.pkl"
+FEATURES_PATH = "models/feature_names.pkl"
 
 
-def predict_topk(model: YOLO, image: Image.Image, top_k: int = 5) -> Tuple[List[str], List[float]]:
-	"""Run classification and return top-k class names and probabilities."""
-	# YOLO classification expects PIL Image or path
-	results = model.predict(source=image, imgsz=224, device="cpu", verbose=False)
-	res = results[0]
-	probs = res.probs  # ultralytics.schemas.Probs
-	if probs is None:
-		return [], []
+def load_model():
+	if not (os.path.exists(MODEL_PATH) and os.path.exists(FEATURES_PATH)):
+		raise FileNotFoundError("Model artifacts not found. Run train_model.py first.")
+	model = joblib.load(MODEL_PATH)
+	feature_names: List[str] = joblib.load(FEATURES_PATH)
+	return model, feature_names
 
-	# Get top-k indices sorted by probability
-	k = min(top_k, len(probs.data))
-	indices = np.argsort(-probs.data.cpu().numpy())[:k]
-	class_names = [res.names[int(i)] for i in indices]
-	scores = [float(probs.data[i]) for i in indices]
-	return class_names, scores
+
+def make_dataframe(records: List[dict], feature_names: List[str]) -> pd.DataFrame:
+	df = pd.DataFrame(records)
+	# Fill missing features with 0.0 and order columns
+	for f in feature_names:
+		if f not in df.columns:
+			df[f] = 0.0
+	df = df[feature_names]
+	return df
+
+
+def predict(model, df: pd.DataFrame) -> np.ndarray:
+	return model.predict(df)
 
 
 if __name__ == "__main__":

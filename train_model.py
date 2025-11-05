@@ -1,131 +1,64 @@
 """
-Simple ML Model Training Script
-This script trains a basic scikit-learn model for classification
+Simple Linear Regression Training Script
+Trains a scikit-learn LinearRegression model on synthetic data
 """
 
-import pandas as pd
 import numpy as np
-from sklearn.datasets import make_classification
+import pandas as pd
+from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
 import joblib
 import os
 
-def create_sample_data():
-    """Create sample classification dataset"""
-    print("Creating sample dataset...")
-    X, y = make_classification(
-        n_samples=1000,
-        n_features=10,
-        n_informative=8,
-        n_redundant=2,
-        n_classes=2,
-        random_state=42
-    )
-    
-    # Create feature names
-    feature_names = [f'feature_{i}' for i in range(X.shape[1])]
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(X, columns=feature_names)
-    df['target'] = y
-    
-    return df, feature_names
 
-def train_model(X_train, y_train, X_test, y_test):
-    """Train Random Forest model"""
-    print("Training Random Forest model...")
-    
-    # Initialize model
-    model = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=10,
-        random_state=42
-    )
-    
-    # Train model
-    model.fit(X_train, y_train)
-    
-    # Make predictions
-    y_pred = model.predict(X_test)
-    
-    # Calculate metrics
-    accuracy = accuracy_score(y_test, y_pred)
-    
-    print(f"Model accuracy: {accuracy:.4f}")
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
-    
-    return model, accuracy
+def create_sample_data(n_samples: int = 1000, n_features: int = 10, noise: float = 10.0):
+	X, y = make_regression(
+		n_samples=n_samples,
+		n_features=n_features,
+		n_informative=n_features,
+		noise=noise,
+		random_state=42
+	)
+	feature_names = [f"feature_{i}" for i in range(n_features)]
+	df = pd.DataFrame(X, columns=feature_names)
+	df["target"] = y
+	return df, feature_names
 
-def evaluate_model(model, X_test, y_test):
-    """Evaluate model performance"""
-    print("Evaluating model...")
-    
-    # Make predictions
-    y_pred = model.predict(X_test)
-    
-    # Calculate metrics
-    accuracy = accuracy_score(y_test, y_pred)
-    
-    print(f"Model accuracy: {accuracy:.4f}")
-    print("\nClassification Report:")
-    print(classification_report(y_test, y_pred))
-    
-    return accuracy
 
-def save_model_locally(model, feature_names):
-    """Save model locally for testing"""
-    print("Saving model locally...")
-    
-    # Create models directory
-    os.makedirs("models", exist_ok=True)
-    
-    # Save model
-    model_path = "models/simple_classifier.pkl"
-    joblib.dump(model, model_path)
-    
-    # Save feature names
-    feature_path = "models/feature_names.pkl"
-    joblib.dump(feature_names, feature_path)
-    
-    print(f"Model saved to: {model_path}")
-    print(f"Feature names saved to: {feature_path}")
+def train_and_evaluate(X_train, y_train, X_test, y_test):
+	model = LinearRegression()
+	model.fit(X_train, y_train)
+	preds = model.predict(X_test)
+	mse = mean_squared_error(y_test, preds)
+	r2 = r2_score(y_test, preds)
+	return model, mse, r2
+
+
+def save_artifacts(model, feature_names):
+	os.makedirs("models", exist_ok=True)
+	joblib.dump(model, "models/linear_regression.pkl")
+	joblib.dump(feature_names, "models/feature_names.pkl")
+
 
 def main():
-    """Main training pipeline"""
-    print("Starting simple ML model training...")
-    
-    # Create sample data
-    df, feature_names = create_sample_data()
-    
-    # Prepare features and target
-    X = df[feature_names]
-    y = df['target']
-    
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-    
-    print(f"Training set size: {X_train.shape}")
-    print(f"Test set size: {X_test.shape}")
-    
-    # Train model
-    model, train_accuracy = train_model(X_train, y_train, X_test, y_test)
-    
-    # Evaluate model
-    test_accuracy = evaluate_model(model, X_test, y_test)
-    
-    # Save locally
-    save_model_locally(model, feature_names)
-    
-    print(f"\nTraining completed successfully!")
-    print(f"Training accuracy: {train_accuracy:.4f}")
-    print(f"Test accuracy: {test_accuracy:.4f}")
-    print("Model saved to models/ directory")
+	print("Starting linear regression training...")
+	df, feature_names = create_sample_data()
+
+	X = df[feature_names]
+	y = df["target"]
+
+	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+	model, mse, r2 = train_and_evaluate(X_train, y_train, X_test, y_test)
+	save_artifacts(model, feature_names)
+
+	print(f"Samples: {len(df)} | Features: {len(feature_names)}")
+	print(f"Test MSE: {mse:.4f} | R2: {r2:.4f}")
+	print("Artifacts saved to models/: linear_regression.pkl, feature_names.pkl")
+
 
 if __name__ == "__main__":
-    main()
+	main()
 

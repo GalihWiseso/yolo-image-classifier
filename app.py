@@ -1,54 +1,58 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from io import BytesIO
-import requests
-from PIL import Image
+from typing import List
+import pandas as pd
 
-from model_serving import load_model, read_image_from_bytes, predict_topk
+from model_serving import load_model, make_dataframe, predict
 
-app = FastAPI(title="YOLO Image Classifier API", version="1.0.0")
+app = FastAPI(title="Linear Regression API", version="1.0.0")
 
 
-class UrlRequest(BaseModel):
-	url: str = Field(..., description="Publicly reachable image URL")
-	top_k: int = 5
+class Record(BaseModel):
+	# Expect 10 features named feature_0..feature_9
+	feature_0: float = Field(...)
+	feature_1: float = Field(...)
+	feature_2: float = Field(...)
+	feature_3: float = Field(...)
+	feature_4: float = Field(...)
+	feature_5: float = Field(...)
+	feature_6: float = Field(...)
+	feature_7: float = Field(...)
+	feature_8: float = Field(...)
+	feature_9: float = Field(...)
+
+
+class PredictRequest(BaseModel):
+	records: List[Record]
 
 
 class PredictResponse(BaseModel):
-	labels: List[str]
-	scores: List[float]
+	predictions: List[float]
 
 
 @app.on_event("startup")
 async def startup_event():
-	global model
-	model = load_model()
+	global model, feature_names
+	try:
+		model, feature_names = load_model()
+	except FileNotFoundError:
+		# Attempt to train if artifacts missing
+		import subprocess
+		subprocess.run(["python3", "train_model.py"], check=True)
+		model, feature_names = load_model()
 
 
 @app.get("/")
 async def root():
-	return {"status": "ok", "message": "YOLO Image Classifier API"}
+	return {"status": "ok", "message": "Linear Regression API"}
 
 
-@app.post("/predict/url", response_model=PredictResponse)
-async def predict_from_url(req: UrlRequest):
+@app.post("/predict", response_model=PredictResponse)
+async def predict_endpoint(req: PredictRequest):
 	try:
-		resp = requests.get(req.url, timeout=10)
-		resp.raise_for_status()
-		img = Image.open(BytesIO(resp.content)).convert("RGB")
-		labels, scores = predict_topk(model, img, top_k=req.top_k)
-		return PredictResponse(labels=labels, scores=scores)
-	except Exception as e:
-		raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/predict/file", response_model=PredictResponse)
-async def predict_from_file(file: UploadFile = File(...), top_k: int = 5):
-	try:
-		image_bytes = await file.read()
-		img = read_image_from_bytes(image_bytes)
-		labels, scores = predict_topk(model, img, top_k=top_k)
-		return PredictResponse(labels=labels, scores=scores)
+		df = make_dataframe([r.model_dump() for r in req.records], feature_names)
+		preds = predict(model, df)
+		preds_list = preds.tolist()
+		return PredictResponse(predictions=preds_list)
 	except Exception as e:
 		raise HTTPException(status_code=400, detail=str(e))

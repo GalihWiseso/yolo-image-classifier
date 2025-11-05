@@ -1,11 +1,8 @@
-# YOLO classifier and dependencies
-ultralytics>=8.2.0
-# Pillow for image IO
-Pillow>=10.0.0
-# Requests for URL fetch
-requests>=2.31.0
-# Optional: OpenCV headless often required indirectly
-opencv-python-headless>=4.8.0
+# Core ML for regression
+scikit-learn>=1.3.0
+pandas>=2.0.0
+numpy>=1.24.0
+joblib>=1.3.0
 
 # API stack
 fastapi>=0.115.0

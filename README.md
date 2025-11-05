@@ -1,13 +1,14 @@
-# YOLO Image Classifier API
+# Linear Regression API
 
-A simple image classification API using Ultralytics YOLOv8 (pretrained `yolov8n-cls.pt`).
+A simple regression API using scikit-learn LinearRegression trained on synthetic data.
 
 ## Files
 
-- `app.py` - FastAPI app exposing `/predict/file` and `/predict/url`
-- `model_serving.py` - Loads YOLO model and runs top-k classification
-- `requirements.txt` - Dependencies (Ultralytics, FastAPI, etc.)
-- `Dockerfile` - Container image for local and DigitalOcean deployments
+- `train_model.py` - Trains LinearRegression and saves artifacts
+- `model_serving.py` - Loads model and performs predictions
+- `app.py` - FastAPI service exposing `/predict`
+- `requirements.txt` - Minimal dependencies
+- `Dockerfile` - Lightweight container for deployment
 - `.dockerignore` - Keeps image lean
 
 ## Quick Start (Local)
@@ -17,40 +18,46 @@ A simple image classification API using Ultralytics YOLOv8 (pretrained `yolov8n-
    pip install -r requirements.txt
    ```
 
-2. Run the API:
+2. Train the model (creates `models/linear_regression.pkl`):
+   ```bash
+   python train_model.py
+   ```
+
+3. Run the API:
    ```bash
    uvicorn app:app --host 0.0.0.0 --port 8000
    ```
 
-3. Open docs at: `http://localhost:8000/docs`
+4. Open docs at: `http://localhost:8000/docs`
 
-### Example Requests
+### Example Request
 
-- Predict from URL:
-  ```bash
-  curl -X POST \
-    http://localhost:8000/predict/url \
-    -H "Content-Type: application/json" \
-    -d '{
-      "url": "https://ultralytics.com/images/bus.jpg",
-      "top_k": 5
-    }'
-  ```
+POST `/predict`
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "records": [
+      {
+        "feature_0": 0.1,
+        "feature_1": -0.2,
+        "feature_2": 1.5,
+        "feature_3": 0.0,
+        "feature_4": 2.2,
+        "feature_5": -1.0,
+        "feature_6": 0.3,
+        "feature_7": 0.7,
+        "feature_8": -0.4,
+        "feature_9": 1.1
+      }
+    ]
+  }'
+```
 
-- Predict from file:
-  ```bash
-  curl -X POST http://localhost:8000/predict/file \
-    -H "accept: application/json" \
-    -H "Content-Type: multipart/form-data" \
-    -F "file=@/path/to/your/image.jpg" \
-    -F "top_k=5"
-  ```
-
-Response format:
+Response:
 ```json
 {
-  "labels": ["school_bus", "bus", "van", "..."],
-  "scores": [0.98, 0.01, 0.003]
+  "predictions": [123.4567]
 }
 ```
 
@@ -59,37 +66,21 @@ Response format:
 Build and run locally:
 ```bash
 # From project root
-docker build -t yolo-image-classifier:latest .
-docker run -p 8000:8000 --name yolo-cls yolo-image-classifier:latest
+docker build -t linear-regression-api:latest .
+docker run -p 8000:8000 --name lr-api linear-regression-api:latest
 ```
 
 Test:
 ```bash
-curl -X POST \
-  http://localhost:8000/predict/url \
+curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://ultralytics.com/images/bus.jpg", "top_k": 5}'
+  -d '{"records": [{"feature_0": 0.1, "feature_1": -0.2, "feature_2": 1.5, "feature_3": 0.0, "feature_4": 2.2, "feature_5": -1.0, "feature_6": 0.3, "feature_7": 0.7, "feature_8": -0.4, "feature_9": 1.1}]}'
 ```
 
 ## Deploy to DigitalOcean (App Platform)
 
-1. Push this project to a Git repo (GitHub/GitLab/Bitbucket).
+1. Push this project to GitHub.
 2. In DigitalOcean, create a new App and select your repo.
-3. Choose Dockerfile as the build method (Dockerfile is in project root).
+3. Choose Dockerfile as the build method.
 4. Set the service port to 8000.
-5. Optional environment:
-   - `PYTHONDONTWRITEBYTECODE=1`
-   - `PYTHONUNBUFFERED=1`
-6. Deploy. The build stage warms up YOLO weights to speed up first request.
-7. Your API will be available at your app URL (e.g., `https://<your-app>.ondigitalocean.app`).
-
-### Deploy to a Droplet (optional)
-```bash
-# SSH into droplet, install Docker, then:
-git clone <your-repo>.git
-cd model-testing
-sudo docker build -t yolo-image-classifier:latest .
-sudo docker run -d -p 80:8000 --name yolo-cls yolo-image-classifier:latest
-```
-
-- Your API will be available on port 80 of the droplet.
+5. Deploy. Your API will be available at your app URL.

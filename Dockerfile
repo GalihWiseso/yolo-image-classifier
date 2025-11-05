@@ -10,11 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 	OPENBLAS_NUM_THREADS=1 \
 	NUMEXPR_MAX_THREADS=1
 
-# Minimal system libs needed by Pillow/OpenCV
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	libgl1 \
-	libglib2.0-0 \
-	&& rm -rf /var/lib/apt/lists/*
+# No additional system libs required for regression stack
 
 WORKDIR /app
 
